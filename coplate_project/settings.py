@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'coplate.middleware.ProfileSetupMiddleware',
 ]
 
 ROOT_URLCONF = 'coplate_project.urls'
@@ -125,8 +126,9 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend'
 ]
 
-ACCOUNT_SIGNUP_REDIRECT_URL = "index"
+ACCOUNT_SIGNUP_REDIRECT_URL = "profile-set"
 LOGIN_REDIRECT_URL = "index"
+LOGIN_URL = "account_login"
 ACCOUNT_LOGOUT_ON_GET = True
 
 # username 이 디폴트 이기 때문에 username 으로 바꾸고 싶다면 삭제
@@ -134,7 +136,7 @@ ACCOUNT_AUTHENTICATION_METHOD = "email"
 
 ACCOUNT_EMAIL_REQUIRED = True  # email 을 필수 입력
 ACCOUNT_USERNAME_REQUIRED = False  # 유저네임 필드 없애줌
-ACCOUNT_SIGNUP_FORM_CLASS = "coplate.forms.SignupForm"
+# ACCOUNT_SIGNUP_FORM_CLASS = "coplate.forms.SignupForm"
 ACCOUNT_SESSION_REMEMBER = True  # 유저 기억할지 말지
 ACCOUNT_PASSWORD_INPUT_RENDER_VALUE = True
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
@@ -145,4 +147,9 @@ ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "account_email_confirmation_
 ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
 
 # Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "jinsung8782aein15@gmail.com"
+EMAIL_HOST_PASSWORD = "wqyclvdxnivbtzst"

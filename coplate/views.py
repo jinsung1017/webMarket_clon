@@ -1,4 +1,6 @@
+from allauth.account.models import EmailAddress
 from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from allauth.account.views import PasswordChangeView
 from django.urls import reverse
 from django.views.generic import (ListView,
@@ -7,10 +9,16 @@ from django.views.generic import (ListView,
                                   UpdateView,
                                   DetailView
                                   )
+from coplate.functions import confirmation_required_redirect
+from braces.views import LoginRequiredMixin, UserPassesTestMixin
 
 from coplate.models import Review
 
 from coplate.forms import ReviewForm
+
+from coplate.models import User
+
+from coplate.forms import ProfileForm
 
 
 # Create your views here.
@@ -30,10 +38,13 @@ class ReviewDetailView(DetailView):
     pk_url_kwarg = "review_id"
 
 
-class ReviewCreateView(CreateView):
+class ReviewCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Review
     form_class = ReviewForm
     template_name = 'coplate/review_form.html'
+
+    redirect_unauthenticated_users = True
+    raise_exception = confirmation_required_redirect
 
     def form_valid(self, form):
         form.instance.author = self.request.user
@@ -42,26 +53,99 @@ class ReviewCreateView(CreateView):
     def get_success_url(self):
         return reverse("review-detail", kwargs={"review_id": self.object.id})
 
+    def test_func(self, user):
+        return EmailAddress.objects.filter(user=user, verified=True).exists()
 
-class ReviewUpdateView(UpdateView):
+
+class ReviewUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Review
     form_class = ReviewForm
     template_name = "coplate/review_form.html"
     pk_url_kwarg = "review_id"
 
+    raise_exception = True
+    redirect_unauthenticated_users = False
+
     def get_success_url(self):
         return reverse("review-detail", kwargs={"review_id": self.object.id})
 
+    def test_func(self, user):
+        review = self.get_object()
+        return review.author == user
 
-class ReviewDeleteView(DeleteView):
+
+class ReviewDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     model = Review
     template_name = "coplate/review_confirm_delete.html"
     pk_url_kwarg = "review_id"
 
+    raise_exception = True
+    redirect_unauthenticated_users = False
+
+    def get_success_url(self):
+        return reverse("index")
+
+    def test_func(self, user):
+        review = self.get_object()
+        return review.author == user
+
+
+class ProfileView(DetailView):
+    model = User
+    template_name = "coplate/profile.html"
+    pk_url_kwarg = "user_id"
+    context_object_name = "profile_user"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_id = self.kwargs.get("user_id")
+        context["user_reviews"] = Review.objects.filter(author__id=user_id).order_by(
+            "-dt_created"
+        )[:4]
+        return context
+
+
+class UserReviewListView(ListView):
+    model = Review
+    template_name = 'coplate/user_review_list.html'
+    context_object_name = "user_reviews"
+    paginate_by = 4
+
+    def get_queryset(self):
+        user_id = self.kwargs.get("user_id")
+        return Review.objects.filter(author__id=user_id).order_by("-dt_created")
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        get_object_or_404(User, id=self.kwargs.get("user_id"))
+        context["profile_user"] = get_object_or_404(User, id=self.kwargs.get("user_id"))
+        return context
+
+
+class ProfileSetView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = ProfileForm
+    template_name = "coplate/profile_set_form.html"
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
     def get_success_url(self):
         return reverse("index")
 
 
-class CustomPasswordChangeView(PasswordChangeView):
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = ProfileForm
+    template_name = "coplate/profile_update_form.html"
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
     def get_success_url(self):
-        return reverse("index")
+        return reverse("profile", kwargs=({"user_id": self.request.user.id}))
+
+
+class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
+    def get_success_url(self):
+        return reverse("profile", kwargs={"user_id": self.request.user.id})
